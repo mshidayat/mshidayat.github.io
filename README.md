@@ -1,2 +1,1 @@
-# mshidayat.github.io
-Homepage
+# Muhamad Syarip Hidayat
