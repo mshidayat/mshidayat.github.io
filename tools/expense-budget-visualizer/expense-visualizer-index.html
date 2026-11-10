@@ -1,0 +1,1725 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Expense &amp; Budget Visualizer</title>
+
+    <style>
+      /* ── CSS Reset ────────────────────────────────────────────────────────── */
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      /* ── CSS Custom Properties ────────────────────────────────────────────── */
+      :root {
+        --color-food:      #FF6384;
+        --color-transport: #36A2EB;
+        --color-fun:       #FFCE56;
+
+        /* Neutral palette — dark-on-light for WCAG AA contrast */
+        --color-bg:        #f5f7fa;
+        --color-surface:   #ffffff;
+        --color-surface-hover: #f1f5f9;
+        --color-border:    #d1d5db;
+        --color-text:      #1a1a2e;        /* contrast vs white: ~14:1 */
+        --color-text-muted: #4b5563;       /* contrast vs white: ~7:1  */
+        --color-accent:    #2563eb;        /* contrast vs white: ~5.9:1 */
+        --color-accent-hover: #1d4ed8;
+        --color-error:     #b91c1c;        /* contrast vs white: ~7:1  */
+        --color-success:   #15803d;        /* contrast vs white: ~5.9:1 */
+
+        /* Typographic scale */
+        --font-size-xs:   0.75rem;   /* 12px */
+        --font-size-sm:   0.875rem;  /* 14px — minimum body text */
+        --font-size-base: 1rem;      /* 16px */
+        --font-size-lg:   1.125rem;  /* 18px */
+        --font-size-xl:   1.25rem;   /* 20px */
+        --font-size-2xl:  1.5rem;    /* 24px */
+        --font-size-3xl:  2rem;      /* 32px */
+
+        --radius:  0.5rem;
+        --radius-sm: 0.375rem;
+        --shadow:  0 1px 3px rgba(0,0,0,.12), 0 1px 2px rgba(0,0,0,.08);
+        --shadow-lg: 0 4px 12px rgba(0,0,0,.15);
+      }
+
+      [data-theme="dark"] {
+        --color-bg:        #0f172a;        /* deep slate 900 */
+        --color-surface:   #1e293b;        /* slate 800 */
+        --color-surface-hover: #293548;
+        --color-border:    #334155;        /* slate 700 */
+        --color-text:      #f8fafc;        /* slate 50 (contrast ~14:1) */
+        --color-text-muted: #94a3b8;       /* slate 400 (contrast ~7:1) */
+        --color-accent:    #3b82f6;        /* vibrant blue 500 */
+        --color-accent-hover: #60a5fa;
+        --color-error:     #ef4444;
+        --color-success:   #22c55e;
+        --shadow:  0 1px 3px rgba(0,0,0,.35), 0 1px 2px rgba(0,0,0,.25);
+        --shadow-lg: 0 6px 16px rgba(0,0,0,.45);
+      }
+
+      /* ── Base Typography ──────────────────────────────────────────────────── */
+      html {
+        font-size: 16px;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                     Helvetica, Arial, sans-serif;
+        font-size: var(--font-size-base);
+        line-height: 1.6;
+        color: var(--color-text);
+        background-color: var(--color-bg);
+        min-height: 100vh;
+        transition: background-color 0.2s ease, color 0.2s ease;
+      }
+
+      h1 { font-size: var(--font-size-3xl); font-weight: 700; letter-spacing: -0.02em; }
+      h2 { font-size: var(--font-size-xl);  font-weight: 600; }
+      h3 { font-size: var(--font-size-lg);  font-weight: 600; }
+
+      /* ── Layout ───────────────────────────────────────────────────────────── */
+      .container {
+        width: min(100%, 1200px);
+        margin-inline: auto;
+        padding-inline: clamp(1rem, 4vw, 2rem);
+      }
+
+      /* Header */
+      header {
+        background-color: var(--color-surface);
+        border-bottom: 1px solid var(--color-border);
+        box-shadow: var(--shadow);
+        padding-block: 1.5rem;
+      }
+
+      .header-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+
+      .header-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+
+      .theme-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        border: 1.5px solid var(--color-border);
+        border-radius: 999px;
+        padding: 0.45rem 0.85rem;
+        font-family: inherit;
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+      }
+
+      .theme-toggle:hover {
+        background-color: var(--color-surface-hover);
+        border-color: var(--color-accent);
+      }
+
+      .theme-toggle:active {
+        transform: scale(0.97);
+      }
+
+      .theme-toggle__icon {
+        font-size: 1.05rem;
+        line-height: 1;
+      }
+
+      header h1 {
+        color: var(--color-accent);
+      }
+
+      /* Balance section inside header */
+      #balance-section {
+        background: linear-gradient(135deg, var(--color-accent) 0%, #1e40af 100%);
+        color: #ffffff;
+        border-radius: var(--radius);
+        padding: 1rem 1.5rem;
+        text-align: right;
+        min-width: 180px;
+      }
+
+      #balance-section h2 {
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        opacity: 0.85;
+        margin-bottom: 0.25rem;
+      }
+
+      #total-balance {
+        font-size: var(--font-size-3xl);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      /* Main grid */
+      main {
+        padding-block: 2rem;
+      }
+
+      .main-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      @media (min-width: 768px) {
+        .main-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        #form-section   { grid-column: 1; grid-row: 1; }
+        #chart-section  { grid-column: 2; grid-row: 1; }
+        #list-section   { grid-column: 1 / -1; grid-row: 2; }
+      }
+
+      @media (min-width: 1200px) {
+        .main-grid {
+          grid-template-columns: 380px 1fr 1fr;
+        }
+        #form-section  { grid-column: 1; grid-row: 1; }
+        #chart-section { grid-column: 2; grid-row: 1; }
+        #list-section  { grid-column: 3; grid-row: 1; }
+      }
+
+      /* Section cards */
+      .card {
+        background-color: var(--color-surface);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow);
+      }
+
+      .card h2 {
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--color-border);
+        color: var(--color-text);
+      }
+
+      /* ── Form ─────────────────────────────────────────────────────────────── */
+      .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        margin-bottom: 1rem;
+      }
+
+      label {
+        font-size: var(--font-size-sm);
+        font-weight: 600;
+        color: var(--color-text);
+      }
+
+      input[type="text"],
+      input[type="number"],
+      select {
+        font-family: inherit;
+        font-size: var(--font-size-base);
+        color: var(--color-text);
+        background-color: var(--color-surface);
+        border: 1.5px solid var(--color-border);
+        border-radius: var(--radius);
+        padding: 0.55rem 0.75rem;
+        width: 100%;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        appearance: none;
+      }
+
+      input[type="text"]:hover,
+      input[type="number"]:hover,
+      select:hover {
+        border-color: var(--color-accent);
+      }
+
+      input[type="text"]:focus,
+      input[type="number"]:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--color-accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+      }
+
+      /* Select arrow */
+      select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%234b5563'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.6rem center;
+        background-size: 1.2em;
+        padding-right: 2.25rem;
+      }
+
+      [data-theme="dark"] select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
+      }
+
+      button[type="submit"] {
+        display: block;
+        width: 100%;
+        font-family: inherit;
+        font-size: var(--font-size-base);
+        font-weight: 600;
+        color: #ffffff;
+        background-color: var(--color-accent);
+        border: none;
+        border-radius: var(--radius);
+        padding: 0.65rem 1.25rem;
+        cursor: pointer;
+        transition: background-color 0.15s ease, box-shadow 0.15s ease,
+                    transform 0.1s ease;
+        margin-top: 0.5rem;
+      }
+
+      button[type="submit"]:hover {
+        background-color: var(--color-accent-hover);
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+      }
+
+      button[type="submit"]:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.35);
+      }
+
+      button[type="submit"]:active {
+        transform: translateY(1px);
+      }
+
+      /* ── Error messages ───────────────────────────────────────────────────── */
+      .error-msg {
+        font-size: var(--font-size-xs);
+        color: var(--color-error);
+        font-weight: 500;
+        min-height: 1.1em;   /* reserve space to avoid layout shift */
+      }
+
+      /* Highlight field border when it has an error */
+      input:invalid:not(:placeholder-shown),
+      select:invalid:not([value=""]) {
+        border-color: var(--color-error);
+      }
+
+      /* ── Category badge ───────────────────────────────────────────────────── */
+      .category-badge {
+        display: inline-block;
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        padding: 0.2em 0.6em;
+        border-radius: 999px;
+        white-space: nowrap;
+        color: #1a1a2e;   /* dark text on light badge bg — AA compliant */
+      }
+
+      .category-badge--food      { background-color: var(--color-food); }
+      .category-badge--transport { background-color: var(--color-transport); }
+      .category-badge--fun       { background-color: var(--color-fun); }
+
+      /* ── Chart section ────────────────────────────────────────────────────── */
+      #chart-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+
+      #chart-section canvas {
+        max-width: 320px;
+        max-height: 320px;
+        width: 100%;
+      }
+
+      #chart-empty-msg {
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+        text-align: center;
+        padding: 2rem 0;
+      }
+
+      /* ── Custom Category Creator ───────────────────────────────────────────── */
+      .field-label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .btn-text-action {
+        background: none;
+        border: none;
+        color: var(--color-accent);
+        font-family: inherit;
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0.2rem 0.4rem;
+        border-radius: var(--radius-sm);
+        transition: color 0.15s ease, background-color 0.15s ease;
+      }
+
+      .btn-text-action:hover {
+        color: var(--color-accent-hover);
+        background-color: rgba(37, 99, 235, 0.1);
+      }
+
+      .custom-cat-box {
+        margin-top: 0.65rem;
+        padding: 0.85rem;
+        background-color: var(--color-bg);
+        border: 1.5px dashed var(--color-accent);
+        border-radius: var(--radius);
+        animation: fadeIn 0.2s ease;
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      .custom-cat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: var(--font-size-xs);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--color-text-muted);
+        margin-bottom: 0.5rem;
+      }
+
+      .custom-cat-close {
+        background: none;
+        border: none;
+        color: var(--color-text-muted);
+        font-size: 1.15rem;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0 0.2rem;
+      }
+
+      .custom-cat-close:hover {
+        color: var(--color-text);
+      }
+
+      .custom-cat-inputs {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+
+      .custom-cat-inputs input[type="text"] {
+        flex: 1;
+        font-size: var(--font-size-sm);
+        padding: 0.45rem 0.65rem;
+      }
+
+      .color-picker-wrap {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-sm);
+        border: 1.5px solid var(--color-border);
+        overflow: hidden;
+        cursor: pointer;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .color-picker-wrap input[type="color"] {
+        width: 160%;
+        height: 160%;
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+      }
+
+      .color-swatches {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.5rem;
+      }
+
+      .swatch-btn {
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 2px solid transparent;
+        cursor: pointer;
+        padding: 0;
+        transition: transform 0.15s ease, border-color 0.15s ease;
+      }
+
+      .swatch-btn:hover {
+        transform: scale(1.18);
+      }
+
+      .swatch-btn.selected {
+        border-color: var(--color-text);
+        box-shadow: 0 0 0 2px var(--color-accent);
+      }
+
+      .custom-cat-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+
+      .btn-save-cat {
+        flex: 1;
+        padding: 0.45rem 0.75rem;
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        background-color: var(--color-accent);
+        color: #ffffff;
+        border: none;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+      }
+
+      .btn-save-cat:hover {
+        background-color: var(--color-accent-hover);
+      }
+
+      .btn-cancel-cat {
+        padding: 0.45rem 0.75rem;
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        background-color: transparent;
+        color: var(--color-text-muted);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+      }
+
+      .btn-cancel-cat:hover {
+        color: var(--color-text);
+        background-color: var(--color-surface-hover);
+      }
+
+      /* ── List Section Header & Sort ────────────────────────────────────────── */
+      .list-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--color-border);
+      }
+
+      .list-section-header h2 {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+
+      .sort-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .sort-label {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-muted);
+        font-weight: 500;
+        white-space: nowrap;
+      }
+
+      .sort-select {
+        font-size: var(--font-size-xs);
+        padding: 0.35rem 1.8rem 0.35rem 0.6rem;
+        border-radius: var(--radius-sm);
+        background-position: right 0.4rem center;
+        background-size: 1em;
+        width: auto;
+      }
+
+      /* ── Transaction list ─────────────────────────────────────────────────── */
+      #transaction-list {
+        list-style: none;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-height: 480px;
+        overflow-y: auto;
+        padding-right: 0.25rem; /* prevent scrollbar overlap */
+      }
+
+      /* Scrollbar styling (Chromium / WebKit) */
+      #transaction-list::-webkit-scrollbar       { width: 6px; }
+      #transaction-list::-webkit-scrollbar-track { background: transparent; }
+      #transaction-list::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+
+      .transaction-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        background-color: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius);
+        transition: box-shadow 0.15s ease;
+      }
+
+      .transaction-item:hover {
+        box-shadow: var(--shadow);
+      }
+
+      .transaction-item__name {
+        flex: 1;
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        min-width: 0;
+      }
+
+      .transaction-item__amount {
+        font-size: var(--font-size-sm);
+        font-weight: 700;
+        white-space: nowrap;
+        color: var(--color-text);
+      }
+
+      /* ── Delete button ────────────────────────────────────────────────────── */
+      .delete-btn {
+        font-family: inherit;
+        font-size: var(--font-size-sm);
+        color: var(--color-text-muted);
+        background: none;
+        border: 1.5px solid var(--color-border);
+        border-radius: var(--radius);
+        padding: 0.25rem 0.5rem;
+        cursor: pointer;
+        line-height: 1;
+        flex-shrink: 0;
+        transition: color 0.15s ease, border-color 0.15s ease,
+                    background-color 0.15s ease;
+      }
+
+      .delete-btn:hover {
+        color: var(--color-error);
+        border-color: var(--color-error);
+        background-color: #fef2f2;
+      }
+
+      .delete-btn:focus-visible {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(185, 28, 28, 0.25);
+      }
+
+      /* ── Empty state ──────────────────────────────────────────────────────── */
+      .empty-state {
+        color: var(--color-text-muted);
+        font-size: var(--font-size-sm);
+        text-align: center;
+        padding: 2rem 1rem;
+        font-style: italic;
+      }
+
+      /* ── Toast notifications ──────────────────────────────────────────────── */
+      #toast-container {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        z-index: 9999;
+        max-width: min(360px, calc(100vw - 3rem));
+      }
+
+      .toast {
+        font-size: var(--font-size-sm);
+        font-weight: 500;
+        color: #ffffff;
+        padding: 0.75rem 1.1rem;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+        animation: toast-in 0.25s ease forwards;
+        word-break: break-word;
+      }
+
+      .toast--error   { background-color: var(--color-error); }
+      .toast--success { background-color: var(--color-success); }
+
+      @keyframes toast-in {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+
+      /* ── Responsive adjustments ───────────────────────────────────────────── */
+      @media (max-width: 479px) {
+        h1 { font-size: var(--font-size-2xl); }
+
+        .header-inner {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        #balance-section {
+          width: 100%;
+          text-align: left;
+        }
+
+        #total-balance {
+          font-size: var(--font-size-2xl);
+        }
+
+        #toast-container {
+          right: 0.75rem;
+          left: 0.75rem;
+          max-width: 100%;
+        }
+      }
+
+      @media (min-width: 2000px) {
+        html { font-size: 18px; }
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- ── Header ────────────────────────────────────────────────────────── -->
+    <header>
+      <div class="container header-inner">
+        <h1>Expense &amp; Budget Visualizer</h1>
+
+        <div class="header-actions">
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to dark theme" title="Toggle dark / light theme">
+            <span class="theme-toggle__icon" id="theme-icon" aria-hidden="true">🌙</span>
+            <span class="theme-toggle__label" id="theme-label">Dark</span>
+          </button>
+
+          <div id="balance-section">
+            <h2>Total Balance</h2>
+            <div id="total-balance">$0.00</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ── Main content ──────────────────────────────────────────────────── -->
+    <main>
+      <div class="container">
+        <div class="main-grid">
+
+          <!-- Input form -->
+          <section id="form-section" class="card">
+            <h2>Add Transaction</h2>
+
+            <form id="transaction-form" novalidate>
+              <div class="field-group">
+                <label for="item-name">Item Name</label>
+                <input
+                  type="text"
+                  id="item-name"
+                  name="item-name"
+                  maxlength="100"
+                  autocomplete="off"
+                  placeholder="e.g. Lunch"
+                  required
+                />
+                <span class="error-msg" aria-live="assertive" id="item-name-error"></span>
+              </div>
+
+              <div class="field-group">
+                <label for="amount">Amount ($)</label>
+                <input
+                  type="number"
+                  id="amount"
+                  name="amount"
+                  step="0.01"
+                  min="0.01"
+                  max="999999999.99"
+                  placeholder="0.00"
+                  required
+                />
+                <span class="error-msg" aria-live="assertive" id="amount-error"></span>
+              </div>
+
+              <div class="field-group">
+                <div class="field-label-row">
+                  <label for="category">Category</label>
+                  <button type="button" id="btn-toggle-custom-cat" class="btn-text-action" aria-expanded="false">
+                    + New Category
+                  </button>
+                </div>
+                <select id="category" name="category" required>
+                  <option value="" disabled selected>Select category</option>
+                  <option value="Food">Food</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Fun">Fun</option>
+                  <option value="__create_new__">+ Create new category...</option>
+                </select>
+                <span class="error-msg" aria-live="assertive" id="category-error"></span>
+
+                <!-- Inline custom category creator (hidden by default) -->
+                <div id="custom-cat-box" class="custom-cat-box" style="display: none;">
+                  <div class="custom-cat-header">
+                    <span>Create Custom Category</span>
+                    <button type="button" id="btn-close-custom-cat" class="custom-cat-close" aria-label="Close category creator">&times;</button>
+                  </div>
+                  <div class="custom-cat-inputs">
+                    <input
+                      type="text"
+                      id="custom-cat-name"
+                      placeholder="Category name (e.g. Health)"
+                      maxlength="30"
+                      autocomplete="off"
+                    />
+                    <div class="color-picker-wrap" title="Choose category color">
+                      <input type="color" id="custom-cat-color" value="#8B5CF6" aria-label="Category color" />
+                    </div>
+                  </div>
+                  <div class="color-swatches" id="color-swatches" aria-label="Preset colors">
+                    <button type="button" class="swatch-btn" data-color="#10B981" style="background-color: #10B981;" title="Emerald"></button>
+                    <button type="button" class="swatch-btn selected" data-color="#8B5CF6" style="background-color: #8B5CF6;" title="Purple"></button>
+                    <button type="button" class="swatch-btn" data-color="#EC4899" style="background-color: #EC4899;" title="Pink"></button>
+                    <button type="button" class="swatch-btn" data-color="#F97316" style="background-color: #F97316;" title="Orange"></button>
+                    <button type="button" class="swatch-btn" data-color="#06B6D4" style="background-color: #06B6D4;" title="Cyan"></button>
+                    <button type="button" class="swatch-btn" data-color="#84CC16" style="background-color: #84CC16;" title="Lime"></button>
+                  </div>
+                  <span class="error-msg" id="custom-cat-error"></span>
+                  <div class="custom-cat-actions">
+                    <button type="button" id="btn-save-custom-cat" class="btn-save-cat">Save Category</button>
+                    <button type="button" id="btn-cancel-custom-cat" class="btn-cancel-cat">Cancel</button>
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit">Add Transaction</button>
+            </form>
+          </section>
+
+          <!-- Spending chart -->
+          <section id="chart-section" class="card">
+            <h2>Spending by Category</h2>
+            <canvas id="spending-chart" style="display: none;"></canvas>
+            <p id="chart-empty-msg">No spending data available yet.</p>
+          </section>
+
+          <!-- Transaction list -->
+          <section id="list-section" class="card">
+            <div class="list-section-header">
+              <h2>Transactions</h2>
+              <div class="sort-wrapper">
+                <label for="sort-select" class="sort-label">Sort by</label>
+                <select id="sort-select" class="sort-select" aria-label="Sort transactions">
+                  <option value="date-desc">Date (Newest)</option>
+                  <option value="date-asc">Date (Oldest)</option>
+                  <option value="amount-desc">Amount (High to Low)</option>
+                  <option value="amount-asc">Amount (Low to High)</option>
+                  <option value="category-asc">Category (A-Z)</option>
+                  <option value="name-asc">Name (A-Z)</option>
+                </select>
+              </div>
+            </div>
+            <ul id="transaction-list">
+              <li class="empty-state">No transactions yet.</li>
+            </ul>
+          </section>
+
+        </div><!-- /.main-grid -->
+      </div><!-- /.container -->
+    </main>
+
+    <!-- ── Toast container ───────────────────────────────────────────────── -->
+    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- ── Chart.js v4 (CDN) ─────────────────────────────────────────────── -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- ── App modules (added in subsequent tasks) ───────────────────────── -->
+    <script type="module">
+
+      // ── Storage module ─────────────────────────────────────────────────────
+      // Wraps localStorage with error handling.
+      // load() returns the parsed transactions array, or null on any error.
+      // save() returns true on success, false on write failure (e.g. quota exceeded).
+      const Storage = {
+        KEY: 'expense-budget-visualizer-transactions',
+
+        load() {
+          try {
+            const raw = localStorage.getItem(this.KEY);
+            return raw ? JSON.parse(raw) : [];
+          } catch (e) {
+            return null; // signals parse error or storage unavailability
+          }
+        },
+
+        save(transactions) {
+          try {
+            localStorage.setItem(this.KEY, JSON.stringify(transactions));
+            return true;
+          } catch (e) {
+            return false; // signals write failure (e.g. quota exceeded)
+          }
+        },
+      };
+
+      // ── Category Manager ──────────────────────────────────────────────────
+      // Fixed default palette + dynamic runtime color map for custom categories.
+      const CATEGORY_COLORS = {
+        Food:      '#FF6384',
+        Transport: '#36A2EB',
+        Fun:       '#FFCE56',
+      };
+
+      const CategoryManager = {
+        STORAGE_KEY: 'expense-budget-visualizer-custom-categories',
+
+        DEFAULTS: [
+          { name: 'Food', color: '#FF6384' },
+          { name: 'Transport', color: '#36A2EB' },
+          { name: 'Fun', color: '#FFCE56' },
+        ],
+
+        loadCustom() {
+          try {
+            const raw = localStorage.getItem(this.STORAGE_KEY);
+            return raw ? JSON.parse(raw) : [];
+          } catch {
+            return [];
+          }
+        },
+
+        saveCustom(cats) {
+          try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(cats));
+            return true;
+          } catch {
+            return false;
+          }
+        },
+
+        getAll() {
+          const custom = this.loadCustom();
+          const map = new Map();
+          for (const d of this.DEFAULTS) {
+            map.set(d.name.toLowerCase(), d);
+          }
+          for (const c of custom) {
+            if (c && c.name && !map.has(c.name.toLowerCase())) {
+              map.set(c.name.toLowerCase(), { name: c.name, color: c.color || '#8B5CF6' });
+            }
+          }
+          return Array.from(map.values());
+        },
+
+        add(name, color = '#8B5CF6') {
+          const trimmed = typeof name === 'string' ? name.trim() : '';
+          if (!trimmed) throw new Error('Category name cannot be empty.');
+          if (trimmed.length > 30) throw new Error('Category name must be 30 characters or fewer.');
+
+          const all = this.getAll();
+          if (all.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) {
+            throw new Error(`Category "${trimmed}" already exists.`);
+          }
+
+          const custom = this.loadCustom();
+          custom.push({ name: trimmed, color });
+          this.saveCustom(custom);
+
+          CATEGORY_COLORS[trimmed] = color;
+          if (!Validator.VALID_CATEGORIES.includes(trimmed)) {
+            Validator.VALID_CATEGORIES.push(trimmed);
+          }
+
+          return { name: trimmed, color };
+        },
+
+        sync(transactions = []) {
+          const all = this.getAll();
+          for (const c of all) {
+            CATEGORY_COLORS[c.name] = c.color;
+            if (!Validator.VALID_CATEGORIES.includes(c.name)) {
+              Validator.VALID_CATEGORIES.push(c.name);
+            }
+          }
+          for (const tx of transactions) {
+            if (tx && tx.category) {
+              if (!CATEGORY_COLORS[tx.category]) {
+                CATEGORY_COLORS[tx.category] = '#8B5CF6';
+              }
+              if (!Validator.VALID_CATEGORIES.includes(tx.category)) {
+                Validator.VALID_CATEGORIES.push(tx.category);
+              }
+            }
+          }
+        },
+      };
+
+      // ── Validator module ───────────────────────────────────────────────────
+      // Validates form input before a transaction is created.
+      // validate({ name, amount, category }) returns { valid, errors }.
+      // errors is a plain object with optional keys: name, amount, category.
+      const Validator = {
+        VALID_CATEGORIES: ['Food', 'Transport', 'Fun'],
+        AMOUNT_MIN: 0.01,
+        AMOUNT_MAX: 999_999_999.99,
+        NAME_MAX: 100,
+
+        validate({ name, amount, category }) {
+          const errors = {};
+
+          // ── Name rule ───────────────────────────────────────────────────
+          // Trim first; empty string and whitespace-only are both invalid.
+          const trimmedName = typeof name === 'string' ? name.trim() : '';
+          if (trimmedName.length === 0) {
+            errors.name = 'Item name is required.';
+          } else if (trimmedName.length > this.NAME_MAX) {
+            errors.name = `Item name must be ${this.NAME_MAX} characters or fewer.`;
+          }
+
+          // ── Amount rule ─────────────────────────────────────────────────
+          // parseFloat handles numeric strings; NaN and out-of-range both fail.
+          const parsedAmount = parseFloat(amount);
+          if (isNaN(parsedAmount)) {
+            errors.amount = 'Amount must be a valid number.';
+          } else if (parsedAmount < this.AMOUNT_MIN) {
+            errors.amount = `Amount must be at least $${this.AMOUNT_MIN.toFixed(2)}.`;
+          } else if (parsedAmount > this.AMOUNT_MAX) {
+            errors.amount = `Amount must not exceed $${this.AMOUNT_MAX.toLocaleString('en-US', { minimumFractionDigits: 2 })}.`;
+          }
+
+          // ── Category rule ───────────────────────────────────────────────
+          if (!this.VALID_CATEGORIES.includes(category)) {
+            errors.category = 'Please select a valid category.';
+          }
+
+          return {
+            valid: Object.keys(errors).length === 0,
+            errors,
+          };
+        },
+      };
+
+      // ── State module ───────────────────────────────────────────────────────
+      // Manages the in-memory transactions array.
+      // addTransaction()    — creates, stores, and returns a new transaction.
+      // deleteTransaction() — removes a transaction by id.
+      // getAll()            — returns a shallow copy of the array.
+      const State = {
+        transactions: [],
+
+        addTransaction({ name, amount, category }) {
+          const tx = {
+            id: crypto.randomUUID(),
+            name: name.trim(),
+            amount: parseFloat(amount),
+            category,
+            createdAt: Date.now(),
+          };
+          this.transactions.push(tx);
+          return tx;
+        },
+
+        deleteTransaction(id) {
+          this.transactions = this.transactions.filter(tx => tx.id !== id);
+        },
+
+        getAll() {
+          return [...this.transactions];
+        },
+      };
+
+      // ── computeBalance (pure function — no DOM side-effects) ──────────────
+      // Task 6.1 | Requirements: 4.1, 4.4
+      // Returns the arithmetic sum of all transaction amounts.
+      // Returns 0 for an empty array.
+      function computeBalance(transactions) {
+        return transactions.reduce((sum, tx) => sum + tx.amount, 0);
+      }
+
+      // ── Render module ──────────────────────────────────────────────────────
+
+      // Category → CSS modifier map used by renderTransactionItem.
+      const CATEGORY_CLASS = {
+        Food:      'food',
+        Transport: 'transport',
+        Fun:       'fun',
+      };
+
+      function getCategoryColor(category) {
+        return CATEGORY_COLORS[category] || '#8B5CF6';
+      }
+
+      function getContrastTextColor(hexColor) {
+        if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return '#1a1a2e';
+        const hex = hexColor.replace('#', '');
+        const r = parseInt(hex.substring(0, 2), 16) || 0;
+        const g = parseInt(hex.substring(2, 4), 16) || 0;
+        const b = parseInt(hex.substring(4, 6), 16) || 0;
+        const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+        return yiq >= 135 ? '#1a1a2e' : '#ffffff';
+      }
+
+      /**
+       * renderTransactionItem(tx) — pure function, returns an HTML string.
+       * Task 6.4 | Requirements: 2.1, 3.1
+       *
+       * The returned string is a complete <li> element containing:
+       *   - item name (CSS text-overflow: ellipsis handles visual truncation;
+       *     the raw name is kept intact in the DOM for accessibility, but the
+       *     first 100 characters are used per spec)
+       *   - amount formatted as $0.00 with toLocaleString
+       *   - category badge with color and contrast-safe text
+       *   - delete button with aria-label
+       *
+       * @param {Transaction} tx
+       * @returns {string} HTML string for one list item
+       */
+      function renderTransactionItem(tx) {
+        // Slice to 100 chars as the spec requires (CSS ellipsis handles overflow visually)
+        const displayName = tx.name.slice(0, 100);
+        const formattedAmount = tx.amount.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        });
+        const categoryClass = CATEGORY_CLASS[tx.category] || tx.category.toLowerCase().replace(/\s+/g, '-');
+        const catColor = getCategoryColor(tx.category);
+        const catTextColor = getContrastTextColor(catColor);
+
+        // Escape display name for safe insertion into aria-label attribute
+        const escapedName = displayName
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;');
+
+        return `<li class="transaction-item" data-id="${tx.id}">
+  <span class="transaction-item__name" title="${escapedName}">${escapedName}</span>
+  <span class="transaction-item__amount">${formattedAmount}</span>
+  <span class="category-badge category-badge--${categoryClass}" style="background-color: ${catColor}; color: ${catTextColor};">${tx.category}</span>
+  <button class="delete-btn" aria-label="Delete ${escapedName}">&#x2715;</button>
+</li>`;
+      }
+
+      /**
+       * renderTotalBalance(transactions) — updates #total-balance textContent.
+       * Task 6.3 | Requirements: 4.1, 4.2, 4.3, 4.4
+       *
+       * @param {Transaction[]} transactions
+       */
+      function renderTotalBalance(transactions) {
+        const balanceEl = document.getElementById('total-balance');
+        const total = computeBalance(transactions);
+        balanceEl.textContent = total.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        });
+      }
+
+      // Active transaction sort criterion
+      let currentSort = 'date-desc';
+      try {
+        currentSort = localStorage.getItem('expense-budget-visualizer-sort') || 'date-desc';
+      } catch {}
+
+      function sortTransactions(transactions, sortKey = currentSort) {
+        const txs = [...transactions];
+        switch (sortKey) {
+          case 'date-asc':
+            return txs.sort((a, b) => a.createdAt - b.createdAt);
+          case 'amount-desc':
+            return txs.sort((a, b) => b.amount - a.amount);
+          case 'amount-asc':
+            return txs.sort((a, b) => a.amount - b.amount);
+          case 'category-asc':
+            return txs.sort((a, b) => a.category.localeCompare(b.category));
+          case 'name-asc':
+            return txs.sort((a, b) => a.name.localeCompare(b.name));
+          case 'date-desc':
+          default:
+            return txs.sort((a, b) => b.createdAt - a.createdAt);
+        }
+      }
+
+      /**
+       * renderTransactionList(transactions) — renders the full <ul> contents.
+       * Task 6.6 | Requirements: 2.2, 2.3, 2.4, 2.5
+       *
+       * Sorts transactions according to currentSort (defaults to newest first).
+       * Shows an empty-state message when the array is empty.
+       *
+       * @param {Transaction[]} transactions
+       */
+      function renderTransactionList(transactions) {
+        const listEl = document.getElementById('transaction-list');
+
+        if (transactions.length === 0) {
+          listEl.innerHTML = '<li class="empty-state">No transactions yet.</li>';
+          return;
+        }
+
+        const sorted = sortTransactions(transactions, currentSort);
+        listEl.innerHTML = sorted.map(renderTransactionItem).join('');
+      }
+
+      // ── Chart module ───────────────────────────────────────────────────────
+      // Module-scoped chart instance — created once by initChart(), updated by updateChart().
+      let chartInstance = null;
+
+      /**
+       * aggregateByCategory(transactions) — pure function, no DOM side-effects.
+       * Task 7.1 | Requirements: 5.1, 5.3
+       *
+       * Groups transactions by category and returns parallel arrays suitable
+       * for Chart.js. Only categories that have at least one transaction are
+       * included (dynamic — not all three hardcoded).
+       *
+       * @param {Transaction[]} transactions
+       * @returns {{ labels: string[], data: number[], colors: string[] }}
+       */
+      function aggregateByCategory(transactions) {
+        // Accumulate totals per category preserving insertion order.
+        const totals = new Map();
+        for (const tx of transactions) {
+          totals.set(tx.category, (totals.get(tx.category) ?? 0) + tx.amount);
+        }
+
+        const labels = [];
+        const data   = [];
+        const colors = [];
+
+        for (const [category, total] of totals) {
+          labels.push(category);
+          data.push(total);
+          colors.push(CATEGORY_COLORS[category] ?? '#8B5CF6');
+        }
+
+        return { labels, data, colors };
+      }
+
+      /**
+       * initChart(ctx, transactions) — creates the Chart.js pie chart once.
+       * Task 7.3 | Requirements: 5.1, 5.5, 7.2
+       *
+       * If Chart.js failed to load from CDN (typeof Chart === 'undefined'),
+       * the canvas is hidden and a fallback message is injected instead.
+       *
+       * @param {CanvasRenderingContext2D} ctx   — from canvas.getContext('2d')
+       * @param {Transaction[]} transactions
+       */
+      function initChart(ctx, transactions = []) {
+        // Guard: CDN may be unavailable (offline scenario).
+        if (typeof Chart === 'undefined') {
+          const canvas = document.getElementById('spending-chart');
+          if (canvas) canvas.style.display = 'none';
+
+          const chartSection = document.getElementById('chart-section');
+          if (chartSection && !document.getElementById('chart-unavailable-msg')) {
+            const fallback = document.createElement('p');
+            fallback.id = 'chart-unavailable-msg';
+            fallback.textContent = 'Chart unavailable — check your internet connection.';
+            chartSection.appendChild(fallback);
+          }
+          return;
+        }
+
+        const canvas = document.getElementById('spending-chart');
+        const emptyMsg = document.getElementById('chart-empty-msg');
+
+        if (!transactions || transactions.length === 0) {
+          if (canvas) canvas.style.display = 'none';
+          if (emptyMsg) emptyMsg.style.display = 'block';
+          return;
+        }
+
+        if (canvas) canvas.style.display = 'block';
+        if (emptyMsg) emptyMsg.style.display = 'none';
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const agg = aggregateByCategory(transactions);
+        chartInstance = new Chart(ctx, {
+          type: 'pie',
+          data: {
+            labels: agg.labels,
+            datasets: [{
+              data:            agg.data,
+              backgroundColor: agg.colors,
+              borderWidth: 1.5,
+              borderColor: isDark ? '#1e293b' : '#ffffff',
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  color: isDark ? '#f8fafc' : '#1a1a2e',
+                  padding: 14,
+                  font: {
+                    family: 'inherit',
+                    size: 12,
+                    weight: '500',
+                  },
+                },
+              },
+              tooltip: {
+                enabled: true,
+                callbacks: {
+                  label(context) {
+                    const label = context.label || '';
+                    const value = context.parsed || 0;
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                    return ` ${label}: $${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${pct}%)`;
+                  },
+                },
+              },
+            },
+          },
+        });
+      }
+
+      /**
+       * updateChart(transactions) — syncs the chart to the current state.
+       * Task 7.4 | Requirements: 5.2, 5.3, 5.5
+       *
+       * - Empty array → hide canvas, show #chart-empty-msg.
+       * - Non-empty   → show canvas, hide #chart-empty-msg, update chart data.
+       *
+       * @param {Transaction[]} transactions
+       */
+      function updateChart(transactions) {
+        const canvas   = document.getElementById('spending-chart');
+        const emptyMsg = document.getElementById('chart-empty-msg');
+
+        if (!canvas) return;
+
+        if (transactions.length === 0) {
+          // No data — hide chart canvas, show placeholder.
+          canvas.style.display = 'none';
+          if (emptyMsg) emptyMsg.style.display = 'block';
+          if (chartInstance) {
+            chartInstance.data.labels = [];
+            chartInstance.data.datasets[0].data = [];
+            chartInstance.update();
+          }
+          return;
+        }
+
+        // Show canvas FIRST so Chart.js can measure its dimensions correctly.
+        canvas.style.display = 'block';
+        if (emptyMsg) emptyMsg.style.display = 'none';
+
+        if (typeof Chart === 'undefined') return;
+
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const agg = aggregateByCategory(transactions);
+
+        if (!chartInstance) {
+          const ctx = canvas.getContext('2d');
+          chartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+              labels: agg.labels,
+              datasets: [{
+                data:            agg.data,
+                backgroundColor: agg.colors,
+                borderWidth: 1.5,
+                borderColor: isDark ? '#1e293b' : '#ffffff',
+              }],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: true,
+              plugins: {
+                legend: {
+                  position: 'bottom',
+                  labels: {
+                    color: isDark ? '#f8fafc' : '#1a1a2e',
+                    padding: 14,
+                    font: {
+                      family: 'inherit',
+                      size: 12,
+                      weight: '500',
+                    },
+                  },
+                },
+                tooltip: {
+                  enabled: true,
+                  callbacks: {
+                    label(context) {
+                      const label = context.label || '';
+                      const value = context.parsed || 0;
+                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                      const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                      return ` ${label}: $${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${pct}%)`;
+                    },
+                  },
+                },
+              },
+            },
+          });
+        } else {
+          chartInstance.data.labels                      = agg.labels;
+          chartInstance.data.datasets[0].data            = agg.data;
+          chartInstance.data.datasets[0].backgroundColor = agg.colors;
+          chartInstance.data.datasets[0].borderColor     = isDark ? '#1e293b' : '#ffffff';
+          if (chartInstance.options.plugins && chartInstance.options.plugins.legend && chartInstance.options.plugins.legend.labels) {
+            chartInstance.options.plugins.legend.labels.color = isDark ? '#f8fafc' : '#1a1a2e';
+          }
+          chartInstance.resize();
+          chartInstance.update();
+        }
+      }
+
+      function populateCategoryDropdown(selectedCategory = '') {
+        const select = document.getElementById('category');
+        if (!select) return;
+
+        const currentVal = selectedCategory || select.value;
+        const categories = CategoryManager.getAll();
+
+        let html = '<option value="" disabled' + (!currentVal ? ' selected' : '') + '>Select category</option>';
+        for (const cat of categories) {
+          const isSelected = cat.name === currentVal ? ' selected' : '';
+          html += `<option value="${cat.name}"${isSelected}>${cat.name}</option>`;
+        }
+        html += '<option value="__create_new__">+ Create new category...</option>';
+        select.innerHTML = html;
+      }
+
+      // ── Toast utility ─────────────────────────────────────────────────────
+      // Task 8.1 | Requirements: 6.4, 6.5, 3.4
+      //
+      // showToast(message, type = 'error') — appends a dismissing toast to
+      // #toast-container (which already carries aria-live="polite" aria-atomic="true")
+      // and removes it after 4 seconds.
+      //
+      // @param {string} message - The notification text to display.
+      // @param {'error'|'success'} [type='error'] - Controls the toast CSS modifier.
+      function showToast(message, type = 'error') {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast toast--${type}`;
+        toast.textContent = message;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      }
+
+      // ── Error display helper ───────────────────────────────────────────────
+      // Task 8.2 | Requirements: 1.3, 9.3
+      //
+      // renderErrors(errors) — clears all existing inline error messages, injects
+      // new error text for each field named in `errors`, then moves focus to the
+      // first invalid field so keyboard/screen-reader users are directed to it.
+      //
+      // @param {{ name?: string, amount?: string, category?: string }} errors
+      function renderErrors(errors) {
+        // Clear every existing error message first to avoid stale text.
+        document.querySelectorAll('.error-msg').forEach(span => {
+          span.textContent = '';
+        });
+
+        // Inject new error text into each relevant span.
+        if (errors.name) {
+          document.getElementById('item-name-error').textContent = errors.name;
+        }
+        if (errors.amount) {
+          document.getElementById('amount-error').textContent = errors.amount;
+        }
+        if (errors.category) {
+          document.getElementById('category-error').textContent = errors.category;
+        }
+
+        // Move focus to the first invalid field (priority: name → amount → category).
+        if (errors.name) {
+          document.getElementById('item-name').focus();
+        } else if (errors.amount) {
+          document.getElementById('amount').focus();
+        } else if (errors.category) {
+          document.getElementById('category').focus();
+        }
+      }
+
+      // ── App module ────────────────────────────────────────────────────────
+      // Bootstraps the application and wires all event listeners.
+      // Runs after the DOM is fully parsed via the DOMContentLoaded event.
+
+      document.addEventListener('DOMContentLoaded', () => {
+
+        // ── Theme Management ──────────────────────────────────────────────────
+        function applyTheme(theme) {
+          document.documentElement.setAttribute('data-theme', theme);
+          const icon = document.getElementById('theme-icon');
+          const label = document.getElementById('theme-label');
+          const btn = document.getElementById('theme-toggle');
+
+          const isDark = theme === 'dark';
+          if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+          if (label) label.textContent = isDark ? 'Light' : 'Dark';
+          if (btn) btn.setAttribute('aria-label', isDark ? 'Switch to light theme' : 'Switch to dark theme');
+
+          // Update chart colors if chart exists
+          if (chartInstance && chartInstance.options && chartInstance.options.plugins && chartInstance.options.plugins.legend) {
+            chartInstance.options.plugins.legend.labels.color = isDark ? '#f8fafc' : '#1a1a2e';
+            if (chartInstance.data.datasets && chartInstance.data.datasets[0]) {
+              chartInstance.data.datasets[0].borderColor = isDark ? '#1e293b' : '#ffffff';
+            }
+            chartInstance.update();
+          }
+        }
+
+        let savedTheme = null;
+        try {
+          savedTheme = localStorage.getItem('expense-budget-visualizer-theme');
+        } catch {}
+
+        if (!savedTheme) {
+          const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          savedTheme = prefersDark ? 'dark' : 'light';
+        }
+        applyTheme(savedTheme);
+
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        if (themeToggleBtn) {
+          themeToggleBtn.addEventListener('click', () => {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            try {
+              localStorage.setItem('expense-budget-visualizer-theme', nextTheme);
+            } catch {}
+            applyTheme(nextTheme);
+          });
+        }
+
+        // ── 9.1  Initialization ─────────────────────────────────────────────
+        // Load persisted transactions from localStorage.
+        const persisted = Storage.load();
+        if (persisted === null) {
+          showToast('Saved data could not be loaded. Starting fresh.');
+          State.transactions = [];
+        } else {
+          State.transactions = persisted;
+        }
+
+        // Sync category manager with saved custom categories & existing transactions
+        CategoryManager.sync(State.getAll());
+        populateCategoryDropdown();
+
+        // ── Sort Control Wiring ───────────────────────────────────────────────
+        const sortSelect = document.getElementById('sort-select');
+        if (sortSelect) {
+          sortSelect.value = currentSort;
+          sortSelect.addEventListener('change', (e) => {
+            currentSort = e.target.value;
+            try {
+              localStorage.setItem('expense-budget-visualizer-sort', currentSort);
+            } catch {}
+            renderTransactionList(State.getAll());
+          });
+        }
+
+        // ── Custom Category Panel Wiring ──────────────────────────────────────
+        const btnToggleCustomCat = document.getElementById('btn-toggle-custom-cat');
+        const customCatBox       = document.getElementById('custom-cat-box');
+        const btnCloseCustomCat  = document.getElementById('btn-close-custom-cat');
+        const btnCancelCustomCat = document.getElementById('btn-cancel-custom-cat');
+        const btnSaveCustomCat   = document.getElementById('btn-save-custom-cat');
+        const customCatNameInput = document.getElementById('custom-cat-name');
+        const customCatColorInput= document.getElementById('custom-cat-color');
+        const customCatError     = document.getElementById('custom-cat-error');
+        const categorySelect     = document.getElementById('category');
+
+        function openCustomCatBox() {
+          if (!customCatBox) return;
+          customCatBox.style.display = 'block';
+          if (btnToggleCustomCat) btnToggleCustomCat.setAttribute('aria-expanded', 'true');
+          if (customCatNameInput) {
+            customCatNameInput.value = '';
+            customCatNameInput.focus();
+          }
+          if (customCatError) customCatError.textContent = '';
+        }
+
+        function closeCustomCatBox() {
+          if (!customCatBox) return;
+          customCatBox.style.display = 'none';
+          if (btnToggleCustomCat) btnToggleCustomCat.setAttribute('aria-expanded', 'false');
+          if (customCatError) customCatError.textContent = '';
+          if (categorySelect && categorySelect.value === '__create_new__') {
+            categorySelect.value = '';
+          }
+        }
+
+        if (btnToggleCustomCat) {
+          btnToggleCustomCat.addEventListener('click', () => {
+            if (customCatBox.style.display === 'none' || !customCatBox.style.display) {
+              openCustomCatBox();
+            } else {
+              closeCustomCatBox();
+            }
+          });
+        }
+
+        if (btnCloseCustomCat)  btnCloseCustomCat.addEventListener('click', closeCustomCatBox);
+        if (btnCancelCustomCat) btnCancelCustomCat.addEventListener('click', closeCustomCatBox);
+
+        // Color swatches interaction
+        document.querySelectorAll('.swatch-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('.swatch-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            const color = btn.dataset.color;
+            if (customCatColorInput) customCatColorInput.value = color;
+          });
+        });
+
+        if (customCatColorInput) {
+          customCatColorInput.addEventListener('input', () => {
+            document.querySelectorAll('.swatch-btn').forEach(b => b.classList.remove('selected'));
+          });
+        }
+
+        if (categorySelect) {
+          categorySelect.addEventListener('change', (e) => {
+            if (e.target.value === '__create_new__') {
+              openCustomCatBox();
+            } else {
+              closeCustomCatBox();
+            }
+          });
+        }
+
+        function handleSaveCustomCategory() {
+          const name = customCatNameInput ? customCatNameInput.value : '';
+          const color = customCatColorInput ? customCatColorInput.value : '#8B5CF6';
+          try {
+            const added = CategoryManager.add(name, color);
+            populateCategoryDropdown(added.name);
+            closeCustomCatBox();
+            showToast(`Category "${added.name}" added successfully!`, 'success');
+            updateChart(State.getAll());
+          } catch (err) {
+            if (customCatError) customCatError.textContent = err.message;
+          }
+        }
+
+        if (btnSaveCustomCat) {
+          btnSaveCustomCat.addEventListener('click', handleSaveCustomCategory);
+        }
+
+        if (customCatNameInput) {
+          customCatNameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleSaveCustomCategory();
+            } else if (e.key === 'Escape') {
+              closeCustomCatBox();
+            }
+          });
+        }
+
+        // Initialise Chart.js once (handles the CDN-failure guard internally).
+        const canvas = document.getElementById('spending-chart');
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          initChart(ctx, State.getAll());
+        }
+
+        // Run the full render pipeline with the restored data.
+        renderTransactionList(State.getAll());
+        renderTotalBalance(State.getAll());
+        updateChart(State.getAll());
+
+        // ── 9.2  Form submit handler ────────────────────────────────────────
+        // Validates input, creates a transaction, persists it, then re-renders.
+        const form = document.getElementById('transaction-form');
+
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+
+          // Read current field values.
+          const name     = document.getElementById('item-name').value;
+          const amount   = document.getElementById('amount').value;
+          const category = document.getElementById('category').value;
+
+          // Validate before touching state.
+          const result = Validator.validate({ name, amount, category });
+          if (!result.valid) {
+            renderErrors(result.errors);
+            return;
+          }
+
+          // Mutate state.
+          State.addTransaction({ name, amount, category });
+
+          // Persist; warn the user if the write fails
+          const saved = Storage.save(State.getAll());
+          if (!saved) {
+            showToast('Your change could not be saved persistently.');
+          }
+
+          // Synchronise the UI with the new state.
+          renderTransactionList(State.getAll());
+          renderTotalBalance(State.getAll());
+          updateChart(State.getAll());
+
+          // Reset the form and clear all inline validation messages.
+          form.reset();
+          populateCategoryDropdown();
+          document.querySelectorAll('.error-msg').forEach(span => {
+            span.textContent = '';
+          });
+        });
+
+        // ── 9.3  Delegated delete handler ──────────────────────────────────
+        const listEl = document.getElementById('transaction-list');
+
+        listEl.addEventListener('click', (e) => {
+          if (!e.target.classList.contains('delete-btn')) return;
+
+          const li = e.target.closest('li');
+          if (!li) return;
+
+          const id = li.dataset.id;
+          if (!id) return;
+
+          const preDeletionSnapshot = State.getAll();
+          State.deleteTransaction(id);
+
+          const saved = Storage.save(State.getAll());
+          if (!saved) {
+            State.transactions = preDeletionSnapshot;
+            showToast('Your change could not be saved persistently.');
+            return;
+          }
+
+          renderTransactionList(State.getAll());
+          renderTotalBalance(State.getAll());
+          updateChart(State.getAll());
+        });
+
+      }); // end DOMContentLoaded
+
+    </script>
+  </body>
+</html>
